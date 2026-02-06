@@ -1,0 +1,425 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-900">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - SinapseLab</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'js/tailwind.config.js' %}"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Toastify CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .logo-text {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Splash Screen Styles */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f172a;
+            /* slate-900 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .splash-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            /* Adjust as needed */
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            display: flex;
+            align-items: center;
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+
+        .splash-logo .sinapse {
+            color: #fff;
+        }
+
+        .splash-logo .lab {
+            color: #3b82f6;
+            /* primary-500 */
+        }
+
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            80% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        @keyframes logoFadeIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes logoPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes splashFadeOut {
+            0% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .logo-fade-in {
+            animation: logoFadeIn 0.6s ease-out;
+        }
+
+        .logo-pulse {
+            animation: logoPulse 2s ease-in-out infinite;
+        }
+
+        .splash-fade-out {
+            animation: splashFadeOut 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+
+<body class="h-full bg-slate-900" x-data="{ showSplash: true }" x-init="setTimeout(() => showSplash = false, 2500)">
+    <!-- Splash Screen -->
+    <div x-show="showSplash" x-transition:leave="transition ease-in duration-500" x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+        style="display: none;" x-cloak>
+        <div class="text-center logo-fade-in">
+            <div class="logo-text text-6xl font-extrabold tracking-tight logo-pulse">
+                <span class="text-white">sinapse</span><span class="text-primary-500">lab</span>
+            </div>
+            <div class="mt-4 flex justify-center gap-2">
+                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 0ms;"></div>
+                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 150ms;"></div>
+                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 300ms;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-slate-800/50 border-b border-slate-700/50 sticky top-0 z-40 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="logo-text text-2xl font-extrabold tracking-tight">
+                    <span class="text-white">sinapse</span>
+                    <span class="text-primary-500">lab</span>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex items-center gap-6">
+                    <a href="{% url 'core:dashboard' %}"
+                        class="text-sm font-semibold text-primary-500 hover:text-primary-400 transition-colors">
+                        Dashboard
+                    </a>
+                    <a href="{% url 'core:service_request_list' %}"
+                        class="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                        Solicitações
+                    </a>
+                    <div class="h-6 w-px bg-slate-700"></div>
+                    <a href="{% url 'core:logout' %}"
+                        class="text-sm font-medium text-red-400 hover:text-red-300 transition-colors">
+                        Sair
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Welcome Section -->
+        <div class="mb-8" data-aos="fade-down" data-aos-duration="600">
+            <h1 class="text-3xl font-bold text-white mb-2">
+                Dashboard
+            </h1>
+            <p class="text-slate-400">
+                Bem-vindo ao seu painel de controle
+            </p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <!-- Stat Card 1 -->
+            <div class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"
+                data-aos="fade-up" data-aos-delay="100" data-hover-lift>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-primary-100 text-sm font-semibold mb-1">
+                            Total de Solicitações
+                        </p>
+                        <p class="text-4xl font-bold text-white">
+                            {{ total_requests }}
+                        </p>
+                    </div>
+                    <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Card 2 -->
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"
+                data-aos="fade-up" data-aos-delay="200" data-hover-lift>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-100 text-sm font-semibold mb-1">
+                            Pendentes
+                        </p>
+                        <p class="text-4xl font-bold text-white">
+                            {{ pending_requests }}
+                        </p>
+                    </div>
+                    <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Card 3 -->
+            <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"
+                data-aos="fade-up" data-aos-delay="300" data-hover-lift>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-emerald-100 text-sm font-semibold mb-1">
+                            Concluídas
+                        </p>
+                        <p class="text-4xl font-bold text-white">
+                            {% widthratio total_requests 1 1 as total %}
+                            {% widthratio pending_requests 1 1 as pending %}
+                            {{ total|add:"-"|add:pending|default:"0" }}
+                        </p>
+                    </div>
+                    <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 shadow-lg p-6 mb-10" data-aos="fade-up"
+            data-aos-delay="400">
+            <h2 class="text-xl font-bold text-white mb-4">
+                Ações Rápidas
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <a href="{% url 'core:service_request_create' %}"
+                    class="flex items-center gap-4 p-4 bg-gradient-to-r from-primary-500/10 to-primary-600/10 rounded-xl border border-primary-500/30 hover:border-primary-500/50 hover:shadow-md transition-all duration-200 group">
+                    <div
+                        class="w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                            </path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-white">Nova Solicitação</p>
+                        <p class="text-sm text-slate-400">Criar uma nova requisição</p>
+                    </div>
+                </a>
+
+                <a href="{% url 'core:service_request_list' %}"
+                    class="flex items-center gap-4 p-4 bg-gradient-to-r from-slate-700/30 to-slate-600/30 rounded-xl border border-slate-600/50 hover:border-slate-500/50 hover:shadow-md transition-all duration-200 group">
+                    <div
+                        class="w-12 h-12 bg-slate-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-white">Ver Todas</p>
+                        <p class="text-sm text-slate-400">Listar todas as solicitações</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Recent Requests -->
+        {% if recent_requests %}
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 shadow-lg p-6" data-aos="fade-up"
+            data-aos-delay="500">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-white">
+                    Solicitações Recentes
+                </h2>
+                <a href="{% url 'core:service_request_list' %}"
+                    class="text-sm font-semibold text-primary-500 hover:text-primary-400 transition-colors">
+                    Ver todas
+                </a>
+            </div>
+
+            <div class="space-y-3">
+                {% for request_obj in recent_requests %}
+                <a href="{% url 'core:service_request_detail' request_obj.pk %}"
+                    class="flex items-center justify-between p-4 bg-slate-900/50 hover:bg-slate-900/70 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-all duration-200 group"
+                    data-hover-lift>
+                    <div class="flex items-center gap-4 flex-1">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-primary-500/20 to-primary-600/20 rounded-lg flex items-center justify-center flex-shrink-0 border border-primary-500/30">
+                            <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-white text-sm mb-0.5">
+                                {{ request_obj.protocol_number }}
+                            </p>
+                            <p class="text-sm text-slate-400 truncate">
+                                {{ request_obj.patient_name }} • {{ request_obj.get_material_type_display }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold"
+                            style="background-color: {{ request_obj.get_status_display_color }}20; color: {{ request_obj.get_status_display_color }};">
+                            {{ request_obj.get_status_display }}
+                        </span>
+                        <span class="text-sm text-slate-500">
+                            {{ request_obj.created_at|date:"d/m/y" }}
+                        </span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 shadow-lg p-12 text-center"
+            data-aos="fade-up" data-aos-delay="500">
+            <div class="w-20 h-20 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">
+                Nenhuma solicitação ainda
+            </h3>
+            <p class="text-slate-400 mb-6 max-w-md mx-auto">
+                Você ainda não criou nenhuma solicitação de serviço. Comece criando sua primeira.
+            </p>
+            <a href="{% url 'core:service_request_create' %}"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Criar Primeira Solicitação
+            </a>
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- Scripts -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="{% static 'js/animations.js' %}"></script>
+
+    <!-- Toast Notifications -->
+    <script>
+        {% if messages %}
+        {% for message in messages %}
+        Toastify({
+            text: "{{ message|escapejs }}",
+            duration: 4000,
+            gravity: "top",
+            position: "right",
+            style: {
+                background: {% if message.tags == 'success' %}"linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                        {% elif message.tags == 'error' %}"linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                        {% elif message.tags == 'warning' %}"linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+                        {% elif message.tags == 'info' %}"linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
+                        {% else %}"linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"{% endif %},
+            borderRadius: "12px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            padding: "12px 24px",
+            fontSize: "14px",
+            fontWeight: "600"
+                    }
+                }).showToast();
+        {% endfor %}
+        {% endif %}
+    </script>
+</body>
+
+</html>
