@@ -1,0 +1,908 @@
+import { ArrowRight, BrainCircuit, CheckCircle2, FlaskConical, MessageCircle } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+
+import api, { clearTokens, loadStoredTokens, persistTokens } from "./api";
+import { Button } from "./components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+
+const partnerLogos = Array.from({ length: 12 }).map((_, idx) => ({ id: idx + 1 }));
+
+const labels = {
+  "pt-BR": {
+    about: "Sobre",
+    services: "Serviços",
+    login: "Entrar",
+    request: "Fazer solicitação",
+    hero: "Rigor técnico e previsibilidade para operações odontológicas de alta exigência.",
+    heroText:
+      "A Sinapse Lab estrutura o ciclo completo de solicitações com padrão operacional, governança de qualidade e comunicação objetiva entre clínica e laboratório.",
+    myRequests: "Minhas solicitações",
+    createRequest: "Nova solicitação",
+    labPanel: "Painel do laboratório",
+    logout: "Sair",
+    carouselTitle: "Rede de parceiros odontológicos",
+    carouselText: "Clínicas e dentistas conectados ao modelo operacional da Sinapse Lab.",
+  },
+  en: {
+    about: "About",
+    services: "Services",
+    login: "Sign in",
+    request: "Submit request",
+    hero: "Technical rigor and predictability for high-demand dental operations.",
+    heroText:
+      "Sinapse Lab structures the full request lifecycle with operational standards, quality governance, and objective communication.",
+    myRequests: "My requests",
+    createRequest: "New request",
+    labPanel: "Laboratory panel",
+    logout: "Sign out",
+    carouselTitle: "Dental partner network",
+    carouselText: "Clinics and dentists connected to the Sinapse Lab technical workflow.",
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.25, 0.1, 0.25, 1] } },
+};
+
+const stagger = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.12 } },
+};
+
+function useLocale() {
+  const browserLocale = navigator.language?.toLowerCase().startsWith("en") ? "en" : "pt-BR";
+  return { t: labels[browserLocale] };
+}
+
+function Header({ t, isAuthenticated, onLogout }) {
+  return (
+    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-xl">
+      <div className="shell flex h-16 items-center justify-between">
+        <Link to="/" className="group flex items-center">
+          <img src="/logo-sinapse.svg" alt="Logo Sinapse Lab" className="h-8 w-auto" />
+        </Link>
+
+        <nav className="flex items-center gap-3 text-sm md:gap-5">
+          <Link className="text-muted-foreground transition hover:text-foreground" to="/#sobre">
+            {t.about}
+          </Link>
+          <Link className="text-muted-foreground transition hover:text-foreground" to="/#servicos">
+            {t.services}
+          </Link>
+          {isAuthenticated ? (
+            <Button variant="outline" size="sm" onClick={onLogout}>
+              {t.logout}
+            </Button>
+          ) : (
+            <Link className="rounded-md bg-amber-500 px-4 py-2 font-semibold text-black transition hover:bg-amber-400" to="/login">
+              {t.login}
+            </Link>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function LandingPage({ t }) {
+  return (
+    <main className="pb-20">
+      <section className="shell relative overflow-hidden py-20 md:py-28">
+        <motion.div
+          className="relative mx-auto max-w-6xl text-center"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.3 }}
+        >
+          <motion.div className="space-y-8" variants={fadeUp}>
+            <h1 className="mx-auto max-w-none text-5xl leading-[1.08] md:text-7xl">{t.hero}</h1>
+            <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">{t.heroText}</p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link
+                className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-5 py-3 text-sm font-semibold text-black transition hover:bg-amber-400"
+                to="/login"
+              >
+                {t.request}
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <WhatsAppFlowCard />
+          </motion.div>
+        </motion.div>
+      </section>
+
+      <section className="shell py-10" id="servicos">
+        <motion.div
+          className="mb-6 max-w-3xl space-y-3"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.35 }}
+        >
+          <motion.h2 className="text-2xl md:text-3xl" variants={fadeUp}>
+            Direção técnica e governança operacional
+          </motion.h2>
+          <motion.p className="text-sm text-muted-foreground md:text-base" variants={fadeUp}>
+            Operamos com protocolo definido para cada etapa do processo, do envio da solicitação ao retorno final,
+            garantindo previsibilidade, qualidade e comunicação corporativa.
+          </motion.p>
+        </motion.div>
+
+        <motion.div
+          className="grid gap-4 md:grid-cols-3"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.25 }}
+        >
+          <motion.div variants={fadeUp}>
+            <ProcessCard icon={<BrainCircuit size={18} className="text-amber-300" />} title="1. Solicitação e triagem">
+              Recebimento estruturado dos dados e anexos, com classificação técnica inicial.
+            </ProcessCard>
+          </motion.div>
+          <motion.div variants={fadeUp}>
+            <ProcessCard icon={<FlaskConical size={18} className="text-amber-300" />} title="2. Análise especializada">
+              Avaliação por equipe do laboratório com controle de prazo e padrão de qualidade.
+            </ProcessCard>
+          </motion.div>
+          <motion.div variants={fadeUp}>
+            <ProcessCard icon={<CheckCircle2 size={18} className="text-amber-300" />} title="3. Resposta e acompanhamento">
+              Retorno técnico documentado e acompanhamento contínuo via plataforma.
+            </ProcessCard>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      <section className="shell py-10" id="sobre">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl md:text-3xl">{t.carouselTitle}</h2>
+            <p className="mt-2 text-sm text-muted-foreground md:text-base">{t.carouselText}</p>
+          </div>
+        </div>
+        <PartnerMarquee items={partnerLogos} />
+      </section>
+
+      <section className="shell py-10">
+        <motion.div
+          className="grid gap-4 md:grid-cols-2"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.25 }}
+        >
+          <motion.div variants={fadeUp}>
+            <Card className="glass h-full">
+              <CardHeader>
+                <CardTitle>Sobre o laboratório</CardTitle>
+              </CardHeader>
+              <CardContent className="text-muted-foreground">
+                A Sinapse Lab atua com metodologia técnica e gestão por indicadores para sustentar qualidade,
+                previsibilidade e padrão de entrega em operações odontológicas.
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div variants={fadeUp}>
+            <Card className="glass h-full">
+              <CardHeader>
+                <CardTitle>Escopo de serviços</CardTitle>
+              </CardHeader>
+              <CardContent className="text-muted-foreground">
+                Próteses fixas e removíveis, prototipagem digital, acompanhamento de casos complexos e retorno técnico
+                estruturado em plataforma única.
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+      </section>
+    </main>
+  );
+}
+
+function ProcessCard({ icon, title, children }) {
+  return (
+    <Card className="glass h-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm text-muted-foreground">{children}</CardContent>
+    </Card>
+  );
+}
+
+function WhatsAppFlowCard() {
+  const conversation = [
+    { id: 1, sender: "agent", text: "Recebemos seu caso 2481. Triagem técnica iniciada.", time: "09:42" },
+    { id: 2, sender: "client", text: "Perfeito, fico no aguardo das próximas etapas.", time: "09:44" },
+    { id: 3, sender: "agent", text: "Atualizações seguem por aqui e também na plataforma Sinapse Lab.", time: "09:46" },
+  ];
+
+  const frames = useMemo(
+    () => [
+    { visibleMessages: 1, typing: null, duration: 2000 },
+    { visibleMessages: 1, typing: "client", duration: 1300 },
+    { visibleMessages: 2, typing: null, duration: 2000 },
+    { visibleMessages: 2, typing: "agent", duration: 1300 },
+    { visibleMessages: 3, typing: null, duration: 2600 },
+    ],
+    [],
+  );
+
+  const [frameIndex, setFrameIndex] = useState(0);
+
+  useEffect(() => {
+    if (frameIndex >= frames.length - 1) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setFrameIndex((old) => old + 1);
+    }, frames[frameIndex].duration);
+    return () => clearTimeout(timer);
+  }, [frameIndex, frames]);
+
+  const currentFrame = frames[frameIndex];
+  const visibleMessages = conversation.slice(0, currentFrame.visibleMessages);
+
+  return (
+    <motion.div
+      className="mx-auto mt-2 w-full max-w-2xl rounded-xl border border-amber-400/25 bg-black/55 p-4 text-left backdrop-blur-sm"
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.35 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+    >
+      <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+          <MessageCircle size={16} />
+        </span>
+        <div>
+          <p className="text-sm font-semibold">Atualizações via WhatsApp</p>
+          <p className="text-xs text-muted-foreground">Com agentes e acompanhamento contínuo</p>
+        </div>
+      </div>
+
+      <div className="h-52 overflow-hidden rounded-lg bg-black/35 p-2">
+        <div className="space-y-2">
+        <AnimatePresence initial={false}>
+          {visibleMessages.map((message) => (
+            <motion.div
+              key={message.id}
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.3 }}
+              className={`flex ${message.sender === "client" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm ${
+                  message.sender === "client"
+                    ? "rounded-br-md bg-zinc-800 text-zinc-100"
+                    : "rounded-bl-md bg-amber-500/18 text-amber-100"
+                }`}
+              >
+                <p>{message.text}</p>
+                <p className="mt-1 text-[10px] text-zinc-400">{message.time}</p>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {currentFrame.typing ? (
+            <motion.div
+              key={`typing-${currentFrame.typing}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className={`flex ${currentFrame.typing === "client" ? "justify-end" : "justify-start"}`}
+            >
+              <div className="rounded-full border border-border/70 bg-zinc-900/80 px-3 py-1 text-xs text-muted-foreground">
+                digitando...
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PartnerMarquee({ items }) {
+  const loopItems = [...items, ...items];
+
+  return (
+    <div className="relative overflow-hidden rounded-xl bg-card/60 py-5">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background to-transparent" />
+      <div className="marquee-track">
+        {loopItems.map((item, index) => (
+          <div
+            className="inline-flex h-20 min-w-[160px] items-stretch justify-stretch"
+            key={`logo-${item.id}-${index}`}
+            aria-label={`Parceiro ${item.id}`}
+          >
+            <div className="partner-logo-mark" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LoginPage({ onLoginSuccess }) {
+  const navigate = useNavigate();
+  const socialBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [registerForm, setRegisterForm] = useState({
+    full_name: "",
+    phone: "",
+    email: "",
+    password1: "",
+    password2: "",
+  });
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const onSubmitLogin = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const response = await api.post("/auth/login/", {
+        email: form.email,
+        password: form.password,
+      });
+      persistTokens(response.data.access, response.data.refresh);
+      const me = await api.get("/auth/me/");
+      onLoginSuccess(me.data);
+      navigate("/dashboard", { replace: true });
+    } catch {
+      setError("Falha no login. Verifique credenciais.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onSubmitRegister = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSubmitting(true);
+
+    if (registerForm.password1 !== registerForm.password2) {
+      setError("As senhas não conferem.");
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      await api.post("/auth/registration/", registerForm);
+      const loginResponse = await api.post("/auth/login/", {
+        email: registerForm.email,
+        password: registerForm.password1,
+      });
+      persistTokens(loginResponse.data.access, loginResponse.data.refresh);
+      const me = await api.get("/auth/me/");
+      onLoginSuccess(me.data);
+      navigate("/dashboard", { replace: true });
+    } catch {
+      setError("Não foi possível criar sua conta. Verifique os dados e tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="shell py-16">
+      <Card className="mx-auto max-w-xl border-amber-400/20 bg-card/90">
+        <CardHeader>
+          <CardTitle className="text-2xl">Acesso à plataforma</CardTitle>
+          <p className="text-sm text-muted-foreground">Entre com sua conta ou cadastre-se como cliente.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 grid grid-cols-2 rounded-md border border-border/70 bg-black/30 p-1 text-sm">
+            <button
+              className={`rounded px-3 py-2 transition ${mode === "login" ? "bg-amber-500 text-black" : "text-muted-foreground"}`}
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError("");
+              }}
+            >
+              Entrar
+            </button>
+            <button
+              className={`rounded px-3 py-2 transition ${mode === "register" ? "bg-amber-500 text-black" : "text-muted-foreground"}`}
+              type="button"
+              onClick={() => {
+                setMode("register");
+                setError("");
+              }}
+            >
+              Criar conta
+            </button>
+          </div>
+
+          {mode === "login" ? (
+            <form className="space-y-3" onSubmit={onSubmitLogin}>
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="email"
+                placeholder="E-mail"
+                value={form.email}
+                onChange={(event) => setForm((old) => ({ ...old, email: event.target.value }))}
+                required
+              />
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="password"
+                placeholder="Senha"
+                value={form.password}
+                onChange={(event) => setForm((old) => ({ ...old, password: event.target.value }))}
+                required
+              />
+              {error ? <p className="text-sm text-red-400">{error}</p> : null}
+              <Button className="w-full" type="submit" disabled={submitting}>
+                {submitting ? "Entrando..." : "Entrar"}
+              </Button>
+            </form>
+          ) : (
+            <form className="space-y-3" onSubmit={onSubmitRegister}>
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="text"
+                placeholder="Nome completo"
+                value={registerForm.full_name}
+                onChange={(event) => setRegisterForm((old) => ({ ...old, full_name: event.target.value }))}
+                required
+              />
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="tel"
+                placeholder="Telefone"
+                value={registerForm.phone}
+                onChange={(event) => setRegisterForm((old) => ({ ...old, phone: event.target.value }))}
+                required
+              />
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="email"
+                placeholder="E-mail"
+                value={registerForm.email}
+                onChange={(event) => setRegisterForm((old) => ({ ...old, email: event.target.value }))}
+                required
+              />
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="password"
+                placeholder="Senha"
+                value={registerForm.password1}
+                onChange={(event) => setRegisterForm((old) => ({ ...old, password1: event.target.value }))}
+                required
+              />
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                type="password"
+                placeholder="Confirmar senha"
+                value={registerForm.password2}
+                onChange={(event) => setRegisterForm((old) => ({ ...old, password2: event.target.value }))}
+                required
+              />
+              {error ? <p className="text-sm text-red-400">{error}</p> : null}
+              <Button className="w-full" type="submit" disabled={submitting}>
+                {submitting ? "Criando conta..." : "Criar conta"}
+              </Button>
+            </form>
+          )}
+
+          <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border/70" />
+            ou continue com
+            <span className="h-px flex-1 bg-border/70" />
+          </div>
+
+          <div className="grid gap-2">
+            <a
+              href={`${socialBase}/auth/google/`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100"
+            >
+              <GoogleMark />
+              Continuar com Google
+            </a>
+            <a
+              href={`${socialBase}/auth/apple/`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-black bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-900"
+            >
+              <AppleMark />
+              Continuar com Apple
+            </a>
+          </div>
+
+          <p className="mt-3 text-xs text-muted-foreground">
+            Ao criar conta, seu perfil será registrado automaticamente como cliente.
+          </p>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.4c-.2 1.3-1.6 3.9-5.4 3.9a6 6 0 1 1 0-12c2.1 0 3.6.9 4.4 1.7l3-2.9C17.5 3.1 15 2 12 2a10 10 0 1 0 0 20c5.8 0 9.6-4 9.6-9.7 0-.7-.1-1.4-.2-2.1z"
+      />
+      <path fill="#34A853" d="M2 7.9l3.5 2.6A6 6 0 0 1 12 6a5.7 5.7 0 0 1 4.4 1.7l3-2.9A10 10 0 0 0 2 7.9" />
+      <path fill="#4A90E2" d="M12 22a10 10 0 0 0 7.2-2.8l-3.3-2.7c-1 .7-2.3 1.3-3.9 1.3a6 6 0 0 1-5.6-4l-3.5 2.7A10 10 0 0 0 12 22" />
+      <path fill="#FBBC05" d="M2 16.5l3.6-2.7a6 6 0 0 1-.3-1.8c0-.6.1-1.2.3-1.8L2 7.5A10 10 0 0 0 2 16.5" />
+    </svg>
+  );
+}
+
+function AppleMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.7 12.7c0-2 1.6-3 1.7-3.1-1-.9-2.5-1-3-1-.8-.1-1.7.4-2.1.4-.5 0-1.2-.4-2-.4-1 0-2 .6-2.5 1.5-1.1 1.8-.3 4.5.8 6 .6.8 1.3 1.7 2.2 1.7.9 0 1.2-.5 2.2-.5s1.3.5 2.2.5c.9 0 1.5-.8 2.1-1.6.7-.9 1-1.8 1-1.9 0 0-2.6-1-2.6-3.6zM14.9 7.4c.5-.6.8-1.3.7-2.1-.7 0-1.5.5-2 1-.5.5-.9 1.3-.8 2.1.8.1 1.6-.4 2.1-1z" />
+    </svg>
+  );
+}
+
+function ClienteDashboard({ t }) {
+  const [items, setItems] = useState([]);
+  const [filters, setFilters] = useState({ status: "", start_date: "", end_date: "" });
+  const [newRequest, setNewRequest] = useState({ titulo: "", descricao: "", arquivos: [] });
+
+  const loadItems = async () => {
+    const params = {};
+    if (filters.status) params.status = filters.status;
+    if (filters.start_date) params.start_date = filters.start_date;
+    if (filters.end_date) params.end_date = filters.end_date;
+    const response = await api.get("/solicitacoes/", { params });
+    setItems(response.data.results || []);
+  };
+
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  const submitRequest = async (event) => {
+    event.preventDefault();
+    const created = await api.post("/solicitacoes/", {
+      titulo: newRequest.titulo,
+      descricao: newRequest.descricao,
+    });
+
+    if (newRequest.arquivos.length > 0) {
+      for (const file of newRequest.arquivos) {
+        const data = new FormData();
+        data.append("arquivo", file);
+        await api.post(`/solicitacoes/${created.data.id}/anexos/`, data, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+    }
+
+    setNewRequest({ titulo: "", descricao: "", arquivos: [] });
+    await loadItems();
+  };
+
+  return (
+    <main className="shell grid gap-6 py-10 lg:grid-cols-[1.4fr_1fr]">
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>{t.myRequests}</CardTitle>
+          <div className="grid gap-2 md:grid-cols-4">
+            <input
+              className="rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+              type="date"
+              value={filters.start_date}
+              onChange={(event) => setFilters((old) => ({ ...old, start_date: event.target.value }))}
+            />
+            <input
+              className="rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+              type="date"
+              value={filters.end_date}
+              onChange={(event) => setFilters((old) => ({ ...old, end_date: event.target.value }))}
+            />
+            <select
+              className="rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+              value={filters.status}
+              onChange={(event) => setFilters((old) => ({ ...old, status: event.target.value }))}
+            >
+              <option value="">Todos status</option>
+              <option value="enviada">Enviada</option>
+              <option value="em_analise">Em análise</option>
+              <option value="aguardando_dados">Aguardando dados</option>
+              <option value="respondida">Respondida</option>
+              <option value="recusada">Recusada</option>
+              <option value="reaberta">Reaberta</option>
+            </select>
+            <Button onClick={loadItems} type="button">
+              Filtrar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {items.map((item) => (
+            <Card className="bg-secondary/50" key={item.id}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{item.titulo}</CardTitle>
+                <p className="text-sm text-muted-foreground">{item.descricao}</p>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground">
+                <p>Status: {item.status}</p>
+                {item.resposta_laboratorio ? <p>Resposta: {item.resposta_laboratorio}</p> : null}
+              </CardContent>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>{t.createRequest}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-3" onSubmit={submitRequest}>
+            <input
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+              placeholder="Título"
+              value={newRequest.titulo}
+              onChange={(event) => setNewRequest((old) => ({ ...old, titulo: event.target.value }))}
+              required
+            />
+            <textarea
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+              rows={4}
+              placeholder="Descrição"
+              value={newRequest.descricao}
+              onChange={(event) => setNewRequest((old) => ({ ...old, descricao: event.target.value }))}
+              required
+            />
+            <input
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+              type="file"
+              multiple
+              onChange={(event) => setNewRequest((old) => ({ ...old, arquivos: Array.from(event.target.files || []) }))}
+            />
+            <Button className="w-full" type="submit">
+              Enviar solicitação
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+function LaboratorioDashboard({ t }) {
+  const [items, setItems] = useState([]);
+
+  const loadItems = async () => {
+    const response = await api.get("/laboratorio/solicitacoes/");
+    setItems(response.data.results || []);
+  };
+
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  const responder = async (id) => {
+    const resposta = window.prompt("Digite a resposta para esta solicitação");
+    if (!resposta) return;
+    await api.post(`/laboratorio/solicitacoes/${id}/responder/`, {
+      resposta_laboratorio: resposta,
+      status: "respondida",
+    });
+    await loadItems();
+  };
+
+  return (
+    <main className="shell py-10">
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>{t.labPanel}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          {items.map((item) => (
+            <Card className="bg-secondary/50" key={item.id}>
+              <CardHeader>
+                <CardTitle className="text-base">{item.titulo}</CardTitle>
+                <p className="text-sm text-muted-foreground">{item.descricao}</p>
+              </CardHeader>
+              <CardContent className="space-y-2 text-xs text-muted-foreground">
+                <p>Cliente ID: {item.cliente}</p>
+                <p>Status: {item.status}</p>
+                <Button className="w-full" type="button" onClick={() => responder(item.id)}>
+                  Responder
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+function Dashboard({ user, t }) {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return user.role === "cliente" ? <ClienteDashboard t={t} /> : <LaboratorioDashboard t={t} />;
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-border/80 bg-black/40">
+      <div className="shell grid gap-6 py-8 md:grid-cols-3">
+        <div>
+          <p className="text-lg font-semibold">
+            Sinapse <span className="text-amber-400">Lab</span>
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Plataforma para gestão técnica de solicitações entre clínicas e laboratório de próteses.
+          </p>
+        </div>
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Contato</p>
+          <p className="mt-2 text-sm text-foreground">contato@sinapselab.com</p>
+          <p className="text-sm text-foreground">+55 (00) 00000-0000</p>
+        </div>
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Institucional</p>
+          <p className="mt-2 text-sm text-foreground">Termos de uso</p>
+          <p className="text-sm text-foreground">Política de privacidade</p>
+        </div>
+      </div>
+      <div className="border-t border-border/70 py-3 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} Sinapse Lab. Todos os direitos reservados.
+      </div>
+    </footer>
+  );
+}
+
+function AnimatedBackgroundLines() {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+      initial={{ opacity: 0.42 }}
+      animate={reduceMotion ? { opacity: 0.44 } : { opacity: [0.36, 0.56, 0.36] }}
+      transition={{ duration: 8.5, repeat: Infinity, ease: "easeInOut" }}
+      aria-hidden="true"
+    >
+      <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <motion.path
+          d="M0 22 L30 22 L43 38 L100 38"
+          stroke="rgba(242,169,0,0.36)"
+          strokeWidth="0.14"
+          fill="none"
+          strokeLinecap="round"
+          filter="url(#lineBlur)"
+          initial={{ pathLength: 0.2, pathOffset: 0.8 }}
+          animate={reduceMotion ? { pathLength: 1, pathOffset: 0 } : { pathLength: [0.2, 1], pathOffset: [0.8, 0] }}
+          transition={{ duration: 11.5, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.path
+          d="M0 48 L33 48 L50 30 L100 30"
+          stroke="rgba(255,194,71,0.32)"
+          strokeWidth="0.14"
+          fill="none"
+          strokeLinecap="round"
+          filter="url(#lineBlur)"
+          initial={{ pathLength: 0.1, pathOffset: 1 }}
+          animate={reduceMotion ? { pathLength: 1, pathOffset: 0 } : { pathLength: [0.1, 1], pathOffset: [1, 0] }}
+          transition={{ duration: 13.2, repeat: Infinity, ease: "linear", delay: 0.45 }}
+        />
+        <motion.path
+          d="M0 66 L31 66 L44 84 L100 84"
+          stroke="rgba(242,169,0,0.28)"
+          strokeWidth="0.14"
+          fill="none"
+          strokeLinecap="round"
+          filter="url(#lineBlur)"
+          initial={{ pathLength: 0.14, pathOffset: 0.95 }}
+          animate={reduceMotion ? { pathLength: 1, pathOffset: 0 } : { pathLength: [0.14, 1], pathOffset: [0.95, 0] }}
+          transition={{ duration: 12.6, repeat: Infinity, ease: "linear", delay: 0.2 }}
+        />
+        <motion.path
+          d="M0 83 L27 83 L41 64 L100 64"
+          stroke="rgba(255,194,71,0.24)"
+          strokeWidth="0.14"
+          fill="none"
+          strokeLinecap="round"
+          filter="url(#lineBlur)"
+          initial={{ pathLength: 0.12, pathOffset: 1 }}
+          animate={reduceMotion ? { pathLength: 1, pathOffset: 0 } : { pathLength: [0.12, 1], pathOffset: [1, 0] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "linear", delay: 0.9 }}
+        />
+        <defs>
+          <filter id="lineBlur" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="0.9" />
+          </filter>
+        </defs>
+      </svg>
+    </motion.div>
+  );
+}
+
+export default function App() {
+  const { t } = useLocale();
+  const location = useLocation();
+  const [user, setUser] = useState(null);
+
+  const isAuthenticated = useMemo(() => Boolean(user), [user]);
+
+  useEffect(() => {
+    const tokens = loadStoredTokens();
+    if (!tokens.access) return;
+
+    api
+      .get("/auth/me/")
+      .then((response) => {
+        setUser(response.data);
+      })
+      .catch(() => {
+        clearTokens();
+        setUser(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const targetId = location.hash.slice(1);
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const timer = setTimeout(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [location.hash, location.pathname]);
+
+  const logout = () => {
+    clearTokens();
+    setUser(null);
+  };
+
+  return (
+    <div className="relative z-10 flex min-h-screen flex-col bg-background">
+      <AnimatedBackgroundLines />
+      <Header t={t} isAuthenticated={isAuthenticated} onLogout={logout} />
+      <div className="flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+          >
+            <Routes location={location}>
+              <Route path="/" element={<LandingPage t={t} />} />
+              <Route path="/login" element={<LoginPage onLoginSuccess={setUser} />} />
+              <Route path="/dashboard" element={<Dashboard user={user} t={t} />} />
+              <Route path="/sobre" element={<Navigate to="/#sobre" replace />} />
+              <Route path="/servicos" element={<Navigate to="/#servicos" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <Footer />
+    </div>
+  );
+}

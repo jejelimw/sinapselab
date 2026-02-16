@@ -1,0 +1,14 @@
+{
+  "name": "laboratorio-proteses",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "apps/mobile"
+  ],
+  "scripts": {
+    "web:dev": "npm --workspace apps/web run dev",
+    "web:build": "npm --workspace apps/web run build",
+    "mobile:start": "npm --workspace apps/mobile run start"
+  }
+}

@@ -1,0 +1,7 @@
+from django.urls import path
+
+from .views import RegisterDeviceTokenView
+
+urlpatterns = [
+    path("device-token/", RegisterDeviceTokenView.as_view(), name="register-device-token"),
+]

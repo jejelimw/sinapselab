@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Sinapse Lab",
+    "slug": "sinapse-lab",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sinapse.lab"
+    },
+    "android": {
+      "package": "com.sinapse.lab"
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "apiBaseUrl": "http://localhost:8000/api"
+    }
+  }
+}
