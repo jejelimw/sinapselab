@@ -559,10 +559,51 @@ function AppleMark() {
   );
 }
 
-function ClienteDashboard({ t }) {
+function ClienteDashboard({ t, user }) {
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState({ status: "", start_date: "", end_date: "" });
-  const [newRequest, setNewRequest] = useState({ titulo: "", descricao: "", arquivos: [] });
+  const [newRequest, setNewRequest] = useState({
+    patientName: "",
+    workType: "",
+    elements: "",
+    material: "",
+    materialOther: "",
+    color: "",
+    colorOther: "",
+    photos: [],
+    scans: [],
+    notes: "",
+  });
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const workTypeOptions = ["Coroa", "Lente", "Coroa sobre implante", "Enceramento (50/un)", "Placa miorrelaxante"];
+  const materialOptions = ["PMMA", "Zirconia", "Emax", "Outro"];
+  const colorOptions = [
+    "BL1",
+    "BL2",
+    "BL3",
+    "BL4",
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "D2",
+    "D3",
+    "D4",
+    "Outro",
+  ];
+  const allowedExtensions = new Set(["pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx"]);
+  const maxFileSize = 20 * 1024 * 1024;
 
   const loadItems = async () => {
     const params = {};
@@ -577,29 +618,312 @@ function ClienteDashboard({ t }) {
     loadItems();
   }, []);
 
-  const submitRequest = async (event) => {
-    event.preventDefault();
-    const created = await api.post("/solicitacoes/", {
-      titulo: newRequest.titulo,
-      descricao: newRequest.descricao,
-    });
+  const validateFiles = (files, label) => {
+    if (files.length > 10) {
+      return `${label}: envie no maximo 10 arquivos.`;
+    }
 
-    if (newRequest.arquivos.length > 0) {
-      for (const file of newRequest.arquivos) {
-        const data = new FormData();
-        data.append("arquivo", file);
-        await api.post(`/solicitacoes/${created.data.id}/anexos/`, data, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+    for (const file of files) {
+      if (file.size > maxFileSize) {
+        return `${label}: o arquivo ${file.name} excede 20MB.`;
+      }
+
+      const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "";
+      if (!allowedExtensions.has(extension)) {
+        return `${label}: formato ${extension || "desconhecido"} nao e aceito.`;
       }
     }
 
-    setNewRequest({ titulo: "", descricao: "", arquivos: [] });
-    await loadItems();
+    return "";
+  };
+
+  const submitRequest = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setFormSuccess("");
+
+    if (!newRequest.patientName || !newRequest.workType || !newRequest.elements || !newRequest.material || !newRequest.color) {
+      setFormError("Preencha todos os campos obrigatorios.");
+      return;
+    }
+
+    if (newRequest.material === "Outro" && !newRequest.materialOther.trim()) {
+      setFormError("Informe o material em 'Outro'.");
+      return;
+    }
+
+    if (newRequest.color === "Outro" && !newRequest.colorOther.trim()) {
+      setFormError("Informe a cor em 'Outro'.");
+      return;
+    }
+
+    const photosError = validateFiles(newRequest.photos, "Fotos");
+    if (photosError) {
+      setFormError(photosError);
+      return;
+    }
+
+    const scansError = validateFiles(newRequest.scans, "Escaneamento");
+    if (scansError) {
+      setFormError(scansError);
+      return;
+    }
+
+    setSubmitting(true);
+
+    const selectedMaterial = newRequest.material === "Outro" ? newRequest.materialOther.trim() : newRequest.material;
+    const selectedColor = newRequest.color === "Outro" ? newRequest.colorOther.trim() : newRequest.color;
+    const descricao = [
+      "Sinapse Lab - Solicitação de Serviço",
+      "",
+      `Nome do paciente: ${newRequest.patientName}`,
+      `Tipo de trabalho: ${newRequest.workType}`,
+      `Elementos: ${newRequest.elements}`,
+      `Material: ${selectedMaterial}`,
+      `Cor: ${selectedColor}`,
+      "",
+      `Observacoes: ${newRequest.notes?.trim() || "Sem observacoes."}`,
+      "",
+      `Fotos anexadas: ${newRequest.photos.length}`,
+      `Escaneamentos anexados: ${newRequest.scans.length}`,
+    ].join("\n");
+
+    try {
+      const created = await api.post("/solicitacoes/", {
+        titulo: `${newRequest.workType} - ${newRequest.patientName}`,
+        descricao,
+      });
+
+      const allFiles = [...newRequest.photos, ...newRequest.scans];
+      if (allFiles.length > 0) {
+        for (const file of allFiles) {
+          const data = new FormData();
+          data.append("arquivo", file);
+          await api.post(`/solicitacoes/${created.data.id}/anexos/`, data, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
+      }
+
+      setNewRequest({
+        patientName: "",
+        workType: "",
+        elements: "",
+        material: "",
+        materialOther: "",
+        color: "",
+        colorOther: "",
+        photos: [],
+        scans: [],
+        notes: "",
+      });
+      setFormSuccess("Solicitacao enviada com sucesso.");
+      await loadItems();
+    } catch {
+      setFormError("Nao foi possivel enviar a solicitacao. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <main className="shell grid gap-6 py-10 lg:grid-cols-[1.4fr_1fr]">
+    <main className="shell grid gap-6 py-10">
+      <Card className="glass border-amber-300/25">
+        <CardHeader className="space-y-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.12em] text-amber-300">Sinapse Lab</p>
+            <CardTitle className="mt-1 text-2xl">Solicitação de serviço</CardTitle>
+          </div>
+          <div className="rounded-md border border-border/70 bg-black/30 px-4 py-3 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Conta conectada</p>
+            <p className="mt-1">{user?.email || "jessicamosby12@gmail.com"} • Mudar de conta</p>
+            <p className="mt-2 text-xs">
+              O nome, a foto e o e-mail associados a sua Conta do Google serao registrados quando voce fizer upload de
+              arquivos e enviar este formulario.
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            <span className="text-red-400">*</span> Indica uma pergunta obrigatoria
+          </p>
+        </CardHeader>
+
+        <CardContent>
+          <form className="grid gap-5" onSubmit={submitRequest}>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">
+                Nome do paciente <span className="text-red-400">*</span>
+              </label>
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                value={newRequest.patientName}
+                onChange={(event) => setNewRequest((old) => ({ ...old, patientName: event.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">
+                Qual tipo de trabalho <span className="text-red-400">*</span>
+              </label>
+              <div className="grid gap-2 md:grid-cols-2">
+                {workTypeOptions.map((option) => (
+                  <label
+                    key={option}
+                    className="flex items-center gap-2 rounded-md border border-border/70 bg-secondary/40 px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="workType"
+                      value={option}
+                      checked={newRequest.workType === option}
+                      onChange={(event) => setNewRequest((old) => ({ ...old, workType: event.target.value }))}
+                      required
+                    />
+                    {option}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">
+                Quais elementos? <span className="text-red-400">*</span>
+              </label>
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Ex.: 11, 12, 21"
+                value={newRequest.elements}
+                onChange={(event) => setNewRequest((old) => ({ ...old, elements: event.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">
+                Qual material? <span className="text-red-400">*</span>
+              </label>
+              <div className="grid gap-2 md:grid-cols-2">
+                {materialOptions.map((option) => (
+                  <label
+                    key={option}
+                    className="flex items-center gap-2 rounded-md border border-border/70 bg-secondary/40 px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="material"
+                      value={option}
+                      checked={newRequest.material === option}
+                      onChange={(event) => setNewRequest((old) => ({ ...old, material: event.target.value }))}
+                      required
+                    />
+                    {option}
+                  </label>
+                ))}
+              </div>
+              {newRequest.material === "Outro" ? (
+                <input
+                  className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Informe o material"
+                  value={newRequest.materialOther}
+                  onChange={(event) => setNewRequest((old) => ({ ...old, materialOther: event.target.value }))}
+                  required
+                />
+              ) : null}
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">
+                Cor <span className="text-red-400">*</span>
+              </label>
+              <div className="grid gap-2 sm:grid-cols-4 md:grid-cols-6">
+                {colorOptions.map((option) => (
+                  <label
+                    key={option}
+                    className="flex items-center gap-2 rounded-md border border-border/70 bg-secondary/40 px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="color"
+                      value={option}
+                      checked={newRequest.color === option}
+                      onChange={(event) => setNewRequest((old) => ({ ...old, color: event.target.value }))}
+                      required
+                    />
+                    {option}
+                  </label>
+                ))}
+              </div>
+              {newRequest.color === "Outro" ? (
+                <input
+                  className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Informe a cor"
+                  value={newRequest.colorOther}
+                  onChange={(event) => setNewRequest((old) => ({ ...old, colorOther: event.target.value }))}
+                  required
+                />
+              ) : null}
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Fotos</label>
+              <p className="text-xs text-muted-foreground">
+                Para colorimetria, foto com a escala paralela ao dente. Para enceramento: foto de rosto completo, com
+                flash e abridor de boca. Paciente sem oculos.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Faca upload de ate 10 arquivos aceitos. O tamanho maximo e de 20 MB por item.
+              </p>
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                onChange={(event) => setNewRequest((old) => ({ ...old, photos: Array.from(event.target.files || []) }))}
+              />
+              {newRequest.photos.length ? (
+                <p className="text-xs text-muted-foreground">{newRequest.photos.length} arquivo(s) selecionado(s).</p>
+              ) : null}
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Escaneamento</label>
+              <p className="text-xs text-muted-foreground">
+                Faca upload de ate 10 arquivos aceitos. O tamanho maximo e de 20 MB por item.
+              </p>
+              <input
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                onChange={(event) => setNewRequest((old) => ({ ...old, scans: Array.from(event.target.files || []) }))}
+              />
+              {newRequest.scans.length ? (
+                <p className="text-xs text-muted-foreground">{newRequest.scans.length} arquivo(s) selecionado(s).</p>
+              ) : null}
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Observacoes</label>
+              <textarea
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                rows={4}
+                value={newRequest.notes}
+                onChange={(event) => setNewRequest((old) => ({ ...old, notes: event.target.value }))}
+              />
+            </div>
+
+            {formError ? <p className="text-sm text-red-400">{formError}</p> : null}
+            {formSuccess ? <p className="text-sm text-emerald-300">{formSuccess}</p> : null}
+
+            <Button className="w-full md:w-fit" type="submit" disabled={submitting}>
+              {submitting ? "Enviando..." : "Enviar solicitacao"}
+            </Button>
+
+            <p className="text-xs text-muted-foreground">Nunca envie senhas por este formulario.</p>
+          </form>
+        </CardContent>
+      </Card>
+
       <Card className="glass">
         <CardHeader>
           <CardTitle>{t.myRequests}</CardTitle>
@@ -647,40 +971,6 @@ function ClienteDashboard({ t }) {
               </CardContent>
             </Card>
           ))}
-        </CardContent>
-      </Card>
-
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle>{t.createRequest}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-3" onSubmit={submitRequest}>
-            <input
-              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
-              placeholder="Título"
-              value={newRequest.titulo}
-              onChange={(event) => setNewRequest((old) => ({ ...old, titulo: event.target.value }))}
-              required
-            />
-            <textarea
-              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
-              rows={4}
-              placeholder="Descrição"
-              value={newRequest.descricao}
-              onChange={(event) => setNewRequest((old) => ({ ...old, descricao: event.target.value }))}
-              required
-            />
-            <input
-              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
-              type="file"
-              multiple
-              onChange={(event) => setNewRequest((old) => ({ ...old, arquivos: Array.from(event.target.files || []) }))}
-            />
-            <Button className="w-full" type="submit">
-              Enviar solicitação
-            </Button>
-          </form>
         </CardContent>
       </Card>
     </main>
@@ -738,10 +1028,45 @@ function LaboratorioDashboard({ t }) {
 }
 
 function Dashboard({ user, t }) {
+  const [adminView, setAdminView] = useState("lab");
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return user.role === "cliente" ? <ClienteDashboard t={t} /> : <LaboratorioDashboard t={t} />;
+
+  if (user.role === "cliente") {
+    return <ClienteDashboard t={t} user={user} />;
+  }
+
+  if (user.role === "lab_admin") {
+    return (
+      <>
+        <section className="shell pt-6">
+          <Card className="glass border-amber-300/20">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <p className="text-sm text-muted-foreground">Selecione a área que deseja acessar no painel administrativo.</p>
+              <div className="flex gap-2">
+                <Button variant={adminView === "lab" ? "default" : "outline"} size="sm" onClick={() => setAdminView("lab")}>
+                  Painel do laboratorio
+                </Button>
+                <Button
+                  variant={adminView === "request" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAdminView("request")}
+                >
+                  Nova solicitacao
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {adminView === "request" ? <ClienteDashboard t={t} user={user} /> : <LaboratorioDashboard t={t} />}
+      </>
+    );
+  }
+
+  return <LaboratorioDashboard t={t} />;
 }
 
 function Footer() {

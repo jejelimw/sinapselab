@@ -37,13 +37,16 @@ class SolicitacaoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = Solicitacao.objects.select_related("cliente", "responded_by").prefetch_related("anexos")
-        if user.role == "cliente":
+        if user.role in {"cliente", "lab_admin"}:
             return queryset.filter(cliente=user)
         return queryset.none()
 
     def create(self, request, *args, **kwargs):
-        if request.user.role != "cliente":
-            return Response({"detail": "Apenas clientes podem criar solicitacoes."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role not in {"cliente", "lab_admin"}:
+            return Response(
+                {"detail": "Apenas cliente ou lab_admin podem criar solicitacoes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
