@@ -1,6 +1,6 @@
 import { ArrowRight, BrainCircuit, CheckCircle2, FlaskConical, MessageCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import api, { clearTokens, loadStoredTokens, persistTokens } from "./api";
@@ -52,6 +52,13 @@ const stagger = {
   show: { opacity: 1, transition: { staggerChildren: 0.12 } },
 };
 
+const SESSION_EXPIRES_AT_KEY = "session_expires_at";
+const SESSION_TIMEOUT_MS = Math.max(Number(import.meta.env.VITE_SESSION_TIMEOUT_MS) || 3600000, 1000);
+const SESSION_WARNING_MS = Math.min(
+  Math.max(Number(import.meta.env.VITE_SESSION_WARNING_MS) || 300000, 500),
+  SESSION_TIMEOUT_MS - 100,
+);
+
 function useLocale() {
   const browserLocale = navigator.language?.toLowerCase().startsWith("en") ? "en" : "pt-BR";
   return { t: labels[browserLocale] };
@@ -88,20 +95,34 @@ function Header({ t, isAuthenticated, onLogout }) {
 }
 
 function LandingPage({ t }) {
+  const highlights = [
+    { title: "SLA técnico monitorado", value: "24-72h", detail: "Janelas de resposta por prioridade clínica" },
+    { title: "Confiabilidade operacional", value: "99.2%", detail: "Solicitações com checklist completo no envio" },
+    { title: "Rede assistida", value: "+180", detail: "Clínicas e dentistas em acompanhamento recorrente" },
+  ];
+
   return (
-    <main className="pb-20">
-      <section className="shell relative overflow-hidden py-20 md:py-28">
+    <main className="pb-24">
+      <section className="shell relative overflow-hidden py-16 md:py-24">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -left-20 top-6 h-56 w-56 rounded-full bg-amber-500/18 blur-3xl md:h-72 md:w-72" />
+          <div className="absolute -right-24 bottom-0 h-52 w-52 rounded-full bg-orange-500/14 blur-3xl md:h-64 md:w-64" />
+        </div>
+
         <motion.div
-          className="relative mx-auto max-w-6xl text-center"
+          className="relative mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.2fr_0.8fr]"
           variants={stagger}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.3 }}
         >
-          <motion.div className="space-y-8" variants={fadeUp}>
-            <h1 className="mx-auto max-w-none text-5xl leading-[1.08] md:text-7xl">{t.hero}</h1>
-            <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">{t.heroText}</p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+          <motion.div className="space-y-7" variants={fadeUp}>
+            <span className="inline-flex rounded-full border border-amber-300/35 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-amber-200">
+              Plataforma de coordenação laboratorial
+            </span>
+            <h1 className="hero-title max-w-3xl text-4xl leading-[1.05] md:text-6xl">{t.hero}</h1>
+            <p className="max-w-2xl text-base text-muted-foreground md:text-lg">{t.heroText}</p>
+            <div className="flex flex-wrap items-center gap-3">
               <Link
                 className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-5 py-3 text-sm font-semibold text-black transition hover:bg-amber-400"
                 to="/login"
@@ -109,8 +130,28 @@ function LandingPage({ t }) {
                 {t.request}
                 <ArrowRight size={16} />
               </Link>
+              <Link
+                className="inline-flex items-center gap-2 rounded-md border border-border/80 bg-black/25 px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-card/80"
+                to="/#servicos"
+              >
+                Ver metodologia
+              </Link>
             </div>
 
+            <div className="grid gap-3 pt-2 sm:grid-cols-3">
+              {highlights.map((item) => (
+                <Card key={item.title} className="glass border-amber-200/15 bg-black/30">
+                  <CardHeader className="p-4 pb-2">
+                    <p className="text-xs uppercase tracking-[0.1em] text-muted-foreground">{item.title}</p>
+                    <CardTitle className="text-2xl text-amber-300">{item.value}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 text-xs text-muted-foreground">{item.detail}</CardContent>
+                </Card>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div className="flex items-end" variants={fadeUp}>
             <WhatsAppFlowCard />
           </motion.div>
         </motion.div>
@@ -168,16 +209,16 @@ function LandingPage({ t }) {
         <PartnerMarquee items={partnerLogos} />
       </section>
 
-      <section className="shell py-10">
+      <section className="shell py-12">
         <motion.div
-          className="grid gap-4 md:grid-cols-2"
+          className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]"
           variants={stagger}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.25 }}
         >
           <motion.div variants={fadeUp}>
-            <Card className="glass h-full">
+            <Card className="glass h-full border-amber-200/20 bg-gradient-to-br from-amber-500/10 via-black/40 to-black/30">
               <CardHeader>
                 <CardTitle>Sobre o laboratório</CardTitle>
               </CardHeader>
@@ -192,9 +233,10 @@ function LandingPage({ t }) {
               <CardHeader>
                 <CardTitle>Escopo de serviços</CardTitle>
               </CardHeader>
-              <CardContent className="text-muted-foreground">
-                Próteses fixas e removíveis, prototipagem digital, acompanhamento de casos complexos e retorno técnico
-                estruturado em plataforma única.
+              <CardContent className="space-y-2 text-muted-foreground">
+                <p>Próteses fixas e removíveis com rastreabilidade por etapa.</p>
+                <p>Prototipagem digital e revisão técnica em casos de alta complexidade.</p>
+                <p>Retorno estruturado com histórico centralizado na plataforma.</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -1165,16 +1207,156 @@ function AnimatedBackgroundLines() {
   );
 }
 
+function SessionExpiryNotice({ isOpen, timeLeftMs, onContinue, onLogout }) {
+  if (!isOpen) {
+    return null;
+  }
+
+  const totalSeconds = Math.max(0, Math.ceil(timeLeftMs / 1000));
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-4">
+      <Card className="w-full max-w-md border-amber-300/30 bg-card/95 shadow-2xl">
+        <CardHeader>
+          <CardTitle className="text-xl">Sua sessao esta prestes a encerrar</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Restam aproximadamente <span className="font-semibold text-amber-300">{totalSeconds}s</span> para encerrar sua
+            sessao. Deseja continuar logado?
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onLogout}>
+            Encerrar agora
+          </Button>
+          <Button onClick={onContinue}>Continuar logado</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function App() {
   const { t } = useLocale();
   const location = useLocation();
   const [user, setUser] = useState(null);
+  const [isSessionNoticeOpen, setIsSessionNoticeOpen] = useState(false);
+  const [sessionTimeLeftMs, setSessionTimeLeftMs] = useState(0);
+  const warningTimeoutRef = useRef(null);
+  const logoutTimeoutRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
 
   const isAuthenticated = useMemo(() => Boolean(user), [user]);
+
+  const clearSessionTimers = () => {
+    if (warningTimeoutRef.current) {
+      clearTimeout(warningTimeoutRef.current);
+      warningTimeoutRef.current = null;
+    }
+    if (logoutTimeoutRef.current) {
+      clearTimeout(logoutTimeoutRef.current);
+      logoutTimeoutRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  };
+
+  const clearSessionExpiry = () => {
+    localStorage.removeItem(SESSION_EXPIRES_AT_KEY);
+  };
+
+  const setSessionExpiry = (expiresAt) => {
+    localStorage.setItem(SESSION_EXPIRES_AT_KEY, String(expiresAt));
+  };
+
+  const loadSessionExpiry = () => {
+    const raw = localStorage.getItem(SESSION_EXPIRES_AT_KEY);
+    if (!raw) return null;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      clearSessionExpiry();
+      return null;
+    }
+    return parsed;
+  };
+
+  const logout = () => {
+    clearSessionTimers();
+    setIsSessionNoticeOpen(false);
+    setSessionTimeLeftMs(0);
+    clearSessionExpiry();
+    clearTokens();
+    setUser(null);
+  };
+
+  const startSessionCountdown = (expiresAt) => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+
+    setSessionTimeLeftMs(Math.max(0, expiresAt - Date.now()));
+    countdownIntervalRef.current = setInterval(() => {
+      setSessionTimeLeftMs(Math.max(0, expiresAt - Date.now()));
+    }, 200);
+  };
+
+  const startSessionTimers = (expiresAt) => {
+    clearSessionTimers();
+
+    const now = Date.now();
+    const remainingMs = expiresAt - now;
+    if (remainingMs <= 0) {
+      logout();
+      return;
+    }
+
+    const warningDelayMs = expiresAt - SESSION_WARNING_MS - now;
+    if (warningDelayMs <= 0) {
+      setIsSessionNoticeOpen(true);
+      startSessionCountdown(expiresAt);
+    } else {
+      warningTimeoutRef.current = setTimeout(() => {
+        setIsSessionNoticeOpen(true);
+        startSessionCountdown(expiresAt);
+      }, warningDelayMs);
+    }
+
+    logoutTimeoutRef.current = setTimeout(() => {
+      logout();
+    }, remainingMs);
+  };
+
+  const beginNewSession = () => {
+    const expiresAt = Date.now() + SESSION_TIMEOUT_MS;
+    setSessionExpiry(expiresAt);
+    setIsSessionNoticeOpen(false);
+    setSessionTimeLeftMs(expiresAt - Date.now());
+    startSessionTimers(expiresAt);
+  };
+
+  const handleLoginSuccess = (nextUser) => {
+    setUser(nextUser);
+    beginNewSession();
+  };
+
+  const handleContinueSession = () => {
+    beginNewSession();
+  };
+
+  useEffect(() => () => clearSessionTimers(), []);
 
   useEffect(() => {
     const tokens = loadStoredTokens();
     if (!tokens.access) return;
+
+    const expiresAt = loadSessionExpiry();
+    if (!expiresAt || expiresAt <= Date.now()) {
+      logout();
+      return;
+    }
+
+    startSessionTimers(expiresAt);
 
     api
       .get("/auth/me/")
@@ -1182,8 +1364,7 @@ export default function App() {
         setUser(response.data);
       })
       .catch(() => {
-        clearTokens();
-        setUser(null);
+        logout();
       });
   }, []);
 
@@ -1197,11 +1378,6 @@ export default function App() {
     }, 60);
     return () => clearTimeout(timer);
   }, [location.hash, location.pathname]);
-
-  const logout = () => {
-    clearTokens();
-    setUser(null);
-  };
 
   return (
     <div className="relative z-10 flex min-h-screen flex-col bg-background">
@@ -1218,7 +1394,7 @@ export default function App() {
           >
             <Routes location={location}>
               <Route path="/" element={<LandingPage t={t} />} />
-              <Route path="/login" element={<LoginPage onLoginSuccess={setUser} />} />
+              <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/dashboard" element={<Dashboard user={user} t={t} />} />
               <Route path="/sobre" element={<Navigate to="/#sobre" replace />} />
               <Route path="/servicos" element={<Navigate to="/#servicos" replace />} />
@@ -1228,6 +1404,12 @@ export default function App() {
         </AnimatePresence>
       </div>
       <Footer />
+      <SessionExpiryNotice
+        isOpen={isSessionNoticeOpen}
+        timeLeftMs={sessionTimeLeftMs}
+        onContinue={handleContinueSession}
+        onLogout={logout}
+      />
     </div>
   );
 }
